@@ -380,14 +380,14 @@ void CGEImageHandler::useImageFBO()
 
 size_t CGEImageHandler::getOutputBufferLen(size_t channel)
 {
-    if (m_bufferTextures[0] == 0 || m_dstFrameBuffer == 0)
+    if (m_bufferTextures[0] == 0 || m_dstFrameBuffer[0] == 0)
         return 0;
     return m_dstImageSize.width * m_dstImageSize.height * channel;
 }
 
 size_t CGEImageHandler::getOutputBufferBytesPerRow(size_t channel)
 {
-    if (m_bufferTextures[0] == 0 || m_dstFrameBuffer == 0)
+    if (m_bufferTextures[0] == 0 || m_dstFrameBuffer[0] == 0)
         return 0;
     return m_dstImageSize.width * channel;
 }
