@@ -17,13 +17,8 @@ CGE_UNEXPECTED_ERR_MSG(
 
 namespace CGE
 {
-CGEImageHandlerInterface::CGEImageHandlerInterface() :
-    m_srcTexture(0), m_dstFrameBuffer(0), m_vertexArrayBuffer(0)
+CGEImageHandlerInterface::CGEImageHandlerInterface()
 {
-    m_dstImageSize.set(0, 0);
-    m_bufferTextures[0] = 0;
-    m_bufferTextures[1] = 0;
-
     CGE_UNEXPECTED_ERR_MSG(
         CGE_LOG_KEEP("Handler create, total: %d\n", ++sHandlerCount);)
 }
@@ -68,7 +63,7 @@ void CGEImageHandlerInterface::copyTextureData(void* data, int w, int h, GLuint 
 
     CGE_ENABLE_GLOBAL_GLCONTEXT();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer[0]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texID, 0);
     glFinish();
     if (channelFmt != GL_RGBA)
@@ -92,29 +87,36 @@ bool CGEImageHandlerInterface::initImageFBO(const void* data, int w, int h, GLen
 
     CGE_LOG_INFO("FBO buffer texture id: %d and %d\n", m_bufferTextures[0], m_bufferTextures[1]);
 
-    glGenFramebuffers(1, &m_dstFrameBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_bufferTextures[0], 0);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    glGenFramebuffers(2, m_dstFrameBuffer);
+    for (int i = 0; i < 2; ++i)
     {
-        clearImageFBO();
-        CGE_LOG_ERROR("Image Handler initImageFBO failed! %x\n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
-        cgeCheckGLError("CGEImageHandlerInterface::initImageFBO");
-        return false;
+        glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_bufferTextures[i], 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            clearImageFBO();
+            CGE_LOG_ERROR("Image Handler initImageFBO failed! %x\n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
+            cgeCheckGLError("CGEImageHandlerInterface::initImageFBO");
+            return false;
+        }
     }
-    CGE_LOG_INFO("FBO Framebuffer id: %d\n", m_dstFrameBuffer);
+
+    CGE_LOG_INFO("FBO Framebuffer id: %d, %d\n", m_dstFrameBuffer[0], m_dstFrameBuffer[1]);
     return true;
 }
 
 void CGEImageHandlerInterface::clearImageFBO()
 {
     CGE_ENABLE_GLOBAL_GLCONTEXT();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glDeleteTextures(2, m_bufferTextures);
     m_bufferTextures[0] = 0;
     m_bufferTextures[1] = 0;
-    glDeleteFramebuffers(1, &m_dstFrameBuffer);
-    m_dstFrameBuffer = 0;
+    glDeleteFramebuffers(2, m_dstFrameBuffer);
+    m_dstFrameBuffer[0] = 0;
+    m_dstFrameBuffer[1] = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -364,7 +366,7 @@ void CGEImageHandler::clearPixelBuffer()
 void CGEImageHandler::setAsTarget()
 {
     CGE_ENABLE_GLOBAL_GLCONTEXT();
-    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer[0]);
     glViewport(0, 0, m_dstImageSize.width, m_dstImageSize.height);
     CGE_LOG_CODE(if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         CGE_LOG_ERROR("CGEImageHandler::setAsTarget failed!\n");
@@ -373,7 +375,7 @@ void CGEImageHandler::setAsTarget()
 
 void CGEImageHandler::useImageFBO()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_dstFrameBuffer[0]);
 }
 
 size_t CGEImageHandler::getOutputBufferLen(size_t channel)
@@ -488,7 +490,7 @@ void CGEImageHandler::setResultDrawer(TextureDrawer* drawer)
 
 GLuint CGEImageHandler::copyLastResultTexture(GLuint texID)
 {
-    if (m_bufferTextures[1] == 0 || m_dstFrameBuffer == 0)
+    if (m_bufferTextures[1] == 0 || m_dstFrameBuffer[0] == 0)
         return texID;
     CGE_ENABLE_GLOBAL_GLCONTEXT();
 
@@ -510,7 +512,7 @@ GLuint CGEImageHandler::copyLastResultTexture(GLuint texID)
 
 GLuint CGEImageHandler::copyResultTexture(GLuint texID)
 {
-    if (m_bufferTextures[1] == 0 || m_dstFrameBuffer == 0)
+    if (m_bufferTextures[1] == 0 || m_dstFrameBuffer[0] == 0)
         return texID;
     CGE_ENABLE_GLOBAL_GLCONTEXT();
 
@@ -633,7 +635,7 @@ void CGEImageHandler::disableReversion()
 
 bool CGEImageHandler::keepCurrentResult()
 {
-    if (!m_bRevertEnabled || m_bufferTextures[0] == 0 || m_dstFrameBuffer == 0)
+    if (!m_bRevertEnabled || m_bufferTextures[0] == 0 || m_dstFrameBuffer[0] == 0)
         return false;
 
     CGE_ENABLE_GLOBAL_GLCONTEXT();
@@ -647,7 +649,7 @@ bool CGEImageHandler::keepCurrentResult()
 
 bool CGEImageHandler::revertToKeptResult(bool bRevert2Target)
 {
-    if (!m_bRevertEnabled || m_bufferTextures[0] == 0 || m_dstFrameBuffer == 0)
+    if (!m_bRevertEnabled || m_bufferTextures[0] == 0 || m_dstFrameBuffer[0] == 0)
         return false;
 
     CGE_ENABLE_GLOBAL_GLCONTEXT();

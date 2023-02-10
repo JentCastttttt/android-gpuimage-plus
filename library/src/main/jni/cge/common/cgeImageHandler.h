@@ -48,7 +48,7 @@ public:
     GLuint& getTargetTextureID() { return m_bufferTextures[0]; }
     GLuint& getBufferTextureID() { return m_bufferTextures[1]; }
     const CGESizei& getOutputFBOSize() const { return m_dstImageSize; }
-    GLuint& getFrameBufferID() { return m_dstFrameBuffer; }
+    GLuint& getFrameBufferID(int index = 0) { return m_dstFrameBuffer[index]; }
     void getOutputFBOSize(int& w, int& h)
     {
         w = m_dstImageSize.width;
@@ -62,11 +62,11 @@ protected:
     virtual void clearImageFBO();
 
 protected:
-    GLuint m_srcTexture;
-    CGESizei m_dstImageSize;
-    GLuint m_bufferTextures[2];
-    GLuint m_dstFrameBuffer;
-    GLuint m_vertexArrayBuffer;
+    GLuint m_srcTexture{};
+    CGESizei m_dstImageSize{};
+    GLuint m_bufferTextures[2]{};
+    GLuint m_dstFrameBuffer[2]{};
+    GLuint m_vertexArrayBuffer{};
 };
 
 class CGEImageHandler : public CGEImageHandlerInterface
